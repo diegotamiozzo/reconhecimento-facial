@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reconhecimento Facial</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    <div class="container my-5">
+        <h1 class="text-center mb-5">Reconhecimento Facial</h1>
+        <div class="row g-4">
+            <div class="col-md-8 d-flex flex-column">
+                <div class="card shadow-lg p-3 mb-4 bg-body-tertiary rounded flex-grow-1">
+                    <div class="card-body text-center">
+                        <div class="video-wrapper position-relative mx-auto" style="width: 640px; height: 480px; max-width: 100%;">
+                            <video id="video" width="640" height="480" autoplay muted class="w-100 h-100 position-absolute top-0 start-0"></video>
+                            <canvas id="canvas" width="640" height="480" class="w-100 h-100 position-absolute top-0 start-0"></canvas>
+                            <div class="overlay-message position-absolute top-50 start-50 translate-middle bg-dark text-white p-2 rounded" id="message">Aguardando câmera...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="status-info p-3 bg-light text-dark rounded shadow-sm mt-auto">
+                    <p class="mb-1">Status: <span id="statusText" class="fw-bold">Conectando...</span></p>
+                    <p class="mb-0">Último Reconhecimento: <span id="lastRecognition" class="fw-bold">Nenhum</span></p>
+                </div>
+            </div>
+
+            <div class="col-md-4 d-flex flex-column">
+                <div class="card shadow-lg p-3 bg-body-tertiary rounded flex-grow-1">
+                    <div class="card-body d-flex flex-column">
+                        <div class="d-flex flex-column align-items-center justify-content-center mb-4">
+                            <h2 class="card-title mb-2">Gerenciar Imagens</h2>
+                            <img src="{{ url_for('static', filename='image/logo/logo.png') }}" alt="Logo" style="height: 250px;" class="mb-3">
+                        </div>
+
+                        <div class="mb-4">
+                            <h5 class="mb-3 text-start">Adicionar Imagem</h5>
+                            <form id="uploadForm" enctype="multipart/form-data">
+                                <div class="input-group">
+                                    <input type="file" class="form-control d-none" id="faceImageInput" name="file" accept="image/*" required>
+                                    </div>
+                                <div class="mt-2"> <button type="button" class="btn btn-success w-100" id="selectAndUploadBtn">
+                                        <i class="bi bi-person-plus"></i> Adicionar Imagem
+                                    </button>
+                                </div>
+                            </form>
+                            <div id="uploadMessage" class="mt-2 text-success small"></div>
+                        </div>
+
+                        <div>
+                            <h5 class="mb-3 text-start">Excluir Imagem</h5>
+                            <div class="input-group">
+                                <select id="faceSelect" class="form-select">
+                                    <option value="">Selecione uma imagem para excluir</option>
+                                </select>
+                                <button id="deleteSelectedBtn" class="btn btn-danger">
+                                    <i class="bi bi-trash"></i> Excluir
+                                </button>
+                            </div>
+                            <div id="deleteMessage" class="mt-2 text-danger small"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eJq" crossorigin="anonymous"></script>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+
+</html>

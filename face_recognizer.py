@@ -10,7 +10,6 @@ FACE_RECOGNITION_TOLERANCE = 0.6
 
 known_face_encodings = []
 known_face_names = []
-# Removida a variável 'initialized' pois a inicialização será controlada externamente ou sempre executada.
 
 def initialize_recognizer():
     """
@@ -25,8 +24,6 @@ def initialize_recognizer():
 
     if not os.path.exists(KNOWN_FACES_FOLDER):
         os.makedirs(KNOWN_FACES_FOLDER)
-        # Não lança mais FileNotFoundError aqui, apenas cria a pasta.
-        # A verificação de rostos vazios será feita abaixo.
 
     face_files_found = False
     for filename in os.listdir(KNOWN_FACES_FOLDER):
@@ -51,9 +48,6 @@ def initialize_recognizer():
 
 
 def recognize_faces_in_frame(frame_bytes):
-    # initialize_recognizer() # Não é mais necessário chamar aqui, será chamado por app.py
-                            # para garantir que os rostos estejam sempre atualizados.
-
     np_array = np.frombuffer(frame_bytes, np.uint8)
     frame = cv2.imdecode(np_array, cv2.IMREAD_COLOR)
 
@@ -103,13 +97,3 @@ def recognize_faces_in_frame(frame_bytes):
         })
 
     return results
-
-# Tenta inicializar no carregamento do módulo.
-# Isso garante que a primeira vez que o aplicativo rodar, ele tente carregar os rostos.
-try:
-    # Garante que a pasta exista antes da primeira inicialização
-    if not os.path.exists(KNOWN_FACES_FOLDER):
-        os.makedirs(KNOWN_FACES_FOLDER)
-    initialize_recognizer()
-except Exception as e:
-    print(f"[ERRO CRÍTICO] Falha na inicialização do reconhecedor de faces: {e}")

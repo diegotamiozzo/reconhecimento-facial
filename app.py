@@ -19,12 +19,17 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 # Garante que a pasta de upload exista no início da aplicação
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Tenta inicializar o reconhecedor na inicialização do Flask
-# Isso garante que os rostos conhecidos sejam carregados uma vez ao iniciar o servidor.
-try:
-    face_recognizer.initialize_recognizer()
-except Exception as e:
-    print(f"[AVISO] Não foi possível inicializar o reconhecedor de faces na inicialização: {e}")
+
+# NOVO: Inicializa o reconhecedor APENAS antes da primeira requisição
+# Isso evita que o processo de build do Render tente carregar/processar rostos,
+# o que causa o erro de "out of memory".
+@app.before_first_request
+def initialize_on_first_request():
+    try:
+        face_recognizer.initialize_recognizer()
+        print("[INFO] Reconhecedor de faces inicializado com sucesso.")
+    except Exception as e:
+        print(f"[ERRO CRÍTICO] Falha na inicialização do reconhecedor de faces antes da primeira requisição: {e}")
 
 
 # Verifica extensão permitida

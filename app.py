@@ -1,4 +1,3 @@
-# app.py
 from flask import Flask, render_template, request, jsonify, send_from_directory, url_for
 import face_recognizer
 import base64
@@ -19,17 +18,23 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 # Garante que a pasta de upload exista no início da aplicação
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
+# Variável para controlar se o reconhecedor já foi inicializado
+# Isso é seguro com Gunicorn, pois cada worker terá sua própria instância.
+_recognizer_initialized = False
 
-# NOVO: Inicializa o reconhecedor APENAS antes da primeira requisição
-# Isso evita que o processo de build do Render tente carregar/processar rostos,
-# o que causa o erro de "out of memory".
-@app.before_first_request
-def initialize_on_first_request():
-    try:
-        face_recognizer.initialize_recognizer()
-        print("[INFO] Reconhecedor de faces inicializado com sucesso.")
-    except Exception as e:
-        print(f"[ERRO CRÍTICO] Falha na inicialização do reconhecedor de faces antes da primeira requisição: {e}")
+# Função auxiliar para garantir que o reconhecedor seja inicializado apenas uma vez por worker
+def ensure_recognizer_initialized():
+    global _recognizer_initialized
+    if not _recognizer_initialized:
+        try:
+            face_recognizer.initialize_recognizer()
+            _recognizer_initialized = True
+            print("[INFO] Reconhecedor de faces inicializado/recarregado com sucesso.")
+        except Exception as e:
+            print(f"[ERRO CRÍTICO] Falha na inicialização do reconhecedor de faces: {e}")
+            # Dependendo da gravidade, você pode querer levantar a exceção ou sair
+            # para evitar que o app rode com um reconhecedor não funcional.
+            # No entanto, para um deploy que não trave, apenas logar é um bom começo.
 
 
 # Verifica extensão permitida
@@ -38,10 +43,15 @@ def allowed_file(filename):
 
 @app.route('/')
 def index():
+    # Garante que o reconhecedor esteja inicializado ao carregar a página principal
+    # Isso é importante para que o reconhecimento comece a funcionar imediatamente.
+    ensure_recognizer_initialized()
     return render_template('index.html')
 
 @app.route('/process_frame', methods=['POST'])
 def process_frame():
+    # Garante que o reconhecedor esteja inicializado antes de processar frames
+    ensure_recognizer_initialized() # Garante que o modelo está em memória
     data = request.get_json()
     if not data or 'image' not in data:
         return jsonify({"error": "Nenhum dado de imagem recebido"}), 400
@@ -69,7 +79,7 @@ def upload_face():
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
 
         # Leitura do conteúdo do arquivo em bytes para validação
-        file_bytes = file.read() # Lê o arquivo uma vez
+        file_bytes = file.read() 
 
         try:
             # Verifica se a imagem contém pelo menos um rosto
@@ -89,11 +99,12 @@ def upload_face():
                 f.write(file_bytes)
 
             # Recarrega as faces para que o face_recognizer tenha os dados atualizados
+            # Não usamos ensure_recognizer_initialized() aqui porque precisamos forçar a recarga
             face_recognizer.initialize_recognizer()
+            print("[INFO] Reconhecedor de faces recarregado após upload.")
             return jsonify({"message": f"Rosto '{filename}' carregado com sucesso!"}), 200
 
         except Exception as e:
-            # Captura exceções mais gerais durante o processamento da imagem
             return jsonify({"error": f"Erro ao processar a imagem: {str(e)}"}), 500
     else:
         return jsonify({"error": "Tipo de arquivo não permitido."}), 400
@@ -101,6 +112,8 @@ def upload_face():
 
 @app.route('/list_faces', methods=['GET'])
 def list_faces():
+    # Garante que o reconhecedor esteja inicializado ao listar os rostos
+    ensure_recognizer_initialized() # Importante caso o app suba e a primeira ação seja listar
     faces = []
     folder = app.config['UPLOAD_FOLDER']
     if os.path.exists(folder):
@@ -126,6 +139,7 @@ def delete_face():
             os.remove(file_path)
             # Recarrega as faces após a exclusão
             face_recognizer.initialize_recognizer()
+            print("[INFO] Reconhecedor de faces recarregado após exclusão.")
             return jsonify({"message": f"Rosto '{filename_to_delete}' excluído com sucesso!"}), 200
         except Exception as e:
             return jsonify({"error": f"Erro ao excluir: {str(e)}"}), 500
@@ -133,4 +147,6 @@ def delete_face():
         return jsonify({"error": "Arquivo não encontrado."}), 404
 
 if __name__ == '__main__':
+    # Para desenvolvimento local, inicializa o reconhecedor uma vez
+    ensure_recognizer_initialized()
     app.run(debug=True)

@@ -9,7 +9,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const uploadForm = document.getElementById('uploadForm');
     const faceImageInput = document.getElementById('faceImageInput');
     const uploadMessage = document.getElementById('uploadMessage');
-    // NOVO: Captura o novo botão visual de upload
     const selectAndUploadBtn = document.getElementById('selectAndUploadBtn');
 
     const faceSelect = document.getElementById('faceSelect');
@@ -22,20 +21,17 @@ document.addEventListener('DOMContentLoaded', () => {
     statusText.textContent = 'Inicializando câmera...';
     overlayMessage.textContent = 'Aguardando câmera...';
 
-    // Função para atualizar o estado do botão de exclusão
-    // Desabilita o botão se a opção selecionada for a vazia ("Selecione uma imagem...")
     const updateDeleteButtonState = () => {
         deleteSelectedBtn.disabled = !faceSelect.value;
     };
 
-    // Carrega os rostos conhecidos e popula o dropdown
     const loadKnownFaces = async () => {
         try {
             const response = await fetch('/list_faces');
             if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
 
             const data = await response.json();
-            faceSelect.innerHTML = '<option value="">Selecione uma imagem para excluir</option>'; // Limpa e adiciona a opção padrão
+            faceSelect.innerHTML = '<option value="">Selecione uma imagem para excluir</option>';
 
             if (data.faces && data.faces.length > 0) {
                 data.faces.forEach(face => {
@@ -45,12 +41,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     faceSelect.appendChild(option);
                 });
             } else {
-                // Se não houver rostos, adiciona uma opção indicando isso e a desabilita
                 const option = new Option("Nenhum rosto cadastrado", "", true, false);
                 option.disabled = true;
                 faceSelect.appendChild(option);
             }
-            // Limpa a mensagem de exclusão após recarregar a lista
             deleteMessage.textContent = '';
             deleteMessage.className = '';
         } catch (error) {
@@ -58,13 +52,10 @@ document.addEventListener('DOMContentLoaded', () => {
             faceSelect.innerHTML = '<option disabled>Erro ao carregar rostos</option>';
             showFeedback(deleteMessage, 'Erro ao carregar lista de rostos.', true);
         } finally {
-            // Garante que o estado do botão de exclusão seja atualizado após o carregamento,
-            // independentemente de ter encontrado rostos ou ter ocorrido um erro.
             updateDeleteButtonState();
         }
     };
 
-    // Função para exibir feedback (sucesso/erro) na interface
     const showFeedback = (element, message, isError = false) => {
         element.textContent = message;
         element.className = isError ? 'alert alert-danger mt-2' : 'alert alert-success mt-2';
@@ -74,38 +65,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 5000);
     };
 
-    // NOVO: Listener para o botão visual "Adicionar Imagem"
     selectAndUploadBtn.addEventListener('click', () => {
-        faceImageInput.click(); // Dispara o clique no input de arquivo escondido
+        faceImageInput.click();
     });
 
-    // NOVO: Listener para o input de arquivo real
-    // Este evento é disparado quando o usuário seleciona um arquivo
     faceImageInput.addEventListener('change', () => {
-        // Verifica se um arquivo foi realmente selecionado
         if (faceImageInput.files.length > 0) {
-            // Dispara o evento de submit no formulário programaticamente
-            // Isso acionará o `uploadForm.addEventListener('submit', ...)`
             uploadForm.dispatchEvent(new Event('submit', { cancelable: true }));
         }
     });
 
-    // Listener principal para o submit do formulário de upload
     uploadForm.addEventListener('submit', async (event) => {
-        event.preventDefault(); // Impede o envio padrão do formulário (que recarregaria a página)
+        event.preventDefault();
 
         const file = faceImageInput.files[0];
         if (!file) {
-            // Esta condição é para caso o evento 'change' seja disparado sem um arquivo (o que é raro com `required`)
-            // ou se alguém tentar manipular o JS.
             showFeedback(uploadMessage, 'Por favor, selecione uma imagem.', true);
             return;
         }
 
-        // Agora, o botão de submissão que mostramos o feedback é o 'selectAndUploadBtn'
         const submitButton = selectAndUploadBtn;
-        submitButton.disabled = true; // Desabilita o botão para evitar múltiplos envios
-        submitButton.textContent = 'Adicionando...'; // Muda o texto para indicar processamento
+        submitButton.disabled = true;
+        submitButton.textContent = 'Adicionando...';
 
         const formData = new FormData();
         formData.append('file', file);
@@ -115,29 +96,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 method: 'POST',
                 body: formData
             });
-            const data = await response.json(); // Tenta ler a resposta JSON
+            const data = await response.json();
             if (response.ok) {
                 showFeedback(uploadMessage, data.message);
-                faceImageInput.value = ''; // Limpa o input de arquivo para permitir novo upload
-                await loadKnownFaces(); // Recarrega a lista para mostrar o novo rosto no dropdown
+                faceImageInput.value = '';
+                await loadKnownFaces();
             } else {
-                // Se a resposta não for OK (ex: 400 Bad Request, 500 Internal Server Error)
                 showFeedback(uploadMessage, data.error || `Erro: ${response.statusText}`, true);
             }
         } catch (error) {
             console.error('Erro ao fazer upload:', error);
             showFeedback(uploadMessage, 'Erro ao conectar com o servidor.', true);
         } finally {
-            // Reabilita o botão e restaura o texto original, independentemente do sucesso ou falha
             submitButton.disabled = false;
-            submitButton.innerHTML = '<i class="bi bi-person-plus"></i> Adicionar Imagem'; // Volta ao ícone e texto original
+            submitButton.innerHTML = '<i class="bi bi-person-plus"></i> Adicionar Imagem';
         }
     });
 
-    // Listener para quando a seleção no dropdown de exclusão muda
     faceSelect.addEventListener('change', updateDeleteButtonState);
 
-    // Listener para o botão de exclusão
     deleteSelectedBtn.addEventListener('click', async () => {
         const filenameToDelete = faceSelect.value;
         if (!filenameToDelete) {
@@ -146,9 +123,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const selectedName = faceSelect.options[faceSelect.selectedIndex].text;
-        // Pede confirmação antes de excluir
         if (confirm(`Deseja realmente excluir o rosto "${selectedName}"? Esta ação é irreversível.`)) {
-            deleteSelectedBtn.disabled = true; // Desabilita o botão durante a exclusão
+            deleteSelectedBtn.disabled = true;
             deleteSelectedBtn.textContent = 'Excluindo...';
 
             try {
@@ -160,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await response.json();
                 if (response.ok) {
                     showFeedback(deleteMessage, data.message);
-                    await loadKnownFaces(); // Recarrega a lista de rostos após a exclusão
+                    await loadKnownFaces();
                 } else {
                     showFeedback(deleteMessage, data.error || `Erro: ${response.statusText}`, true);
                 }
@@ -168,15 +144,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('Erro ao excluir imagem:', error);
                 showFeedback(deleteMessage, 'Erro ao conectar com o servidor.', true);
             } finally {
-                // Reabilita o botão e restaura o texto original
                 deleteSelectedBtn.disabled = false;
-                deleteSelectedBtn.innerHTML = '<i class="bi bi-trash"></i> Excluir'; // Volta ao ícone e texto original
-                updateDeleteButtonState(); // Garante que o estado do botão seja atualizado após a operação
+                deleteSelectedBtn.innerHTML = '<i class="bi bi-trash"></i> Excluir';
+                updateDeleteButtonState();
             }
         }
     });
 
-    // Inicialização da câmera
     navigator.mediaDevices.getUserMedia({ video: true })
         .then(stream => {
             video.srcObject = stream;
@@ -195,7 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
     let lastRecognitionTime = 0;
-    const recognitionInterval = 500; // Intervalo de 500ms (0.5 segundos)
+    const recognitionInterval = 500;
 
     function sendFramePeriodically() {
         requestAnimationFrame(sendFramePeriodically);
@@ -206,14 +180,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         context.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Desenha o vídeo espelhado no canvas (comum para webcams)
         context.save();
         context.translate(canvas.width, 0);
         context.scale(-1, 1);
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
         context.restore();
 
-        const imageData = canvas.toDataURL('image/jpeg', 0.7); // Qualidade JPEG 0.7
+        const imageData = canvas.toDataURL('image/jpeg', 0.7);
 
         fetch('/process_frame', {
             method: 'POST',
@@ -222,7 +195,6 @@ document.addEventListener('DOMContentLoaded', () => {
         })
         .then(response => {
             if (!response.ok) {
-                // Se a resposta não for OK, tenta ler a mensagem de erro do servidor
                 return response.json().then(errorData => {
                     throw new Error(errorData.error || `Erro HTTP: ${response.status}`);
                 });
@@ -230,10 +202,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return response.json();
         })
         .then(data => {
-            // Limpa o canvas para redesenhar as caixas
             context.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Redesenha o vídeo espelhado
             context.save();
             context.translate(canvas.width, 0);
             context.scale(-1, 1);
@@ -246,16 +216,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     const { top, right, bottom, left } = face.box;
                     const name = face.name;
 
-                    // Desenha o retângulo do rosto
                     context.strokeStyle = primaryColor;
                     context.lineWidth = 4;
                     context.strokeRect(left, top, right - left, bottom - top);
 
-                    // Desenha o fundo do nome
                     context.fillStyle = primaryColor;
                     context.fillRect(left, bottom - 35, right - left, 35);
 
-                    // Desenha o nome
                     context.fillStyle = 'white';
                     context.font = '24px Poppins';
                     context.fillText(name, left + 6, bottom - 6);
@@ -263,21 +230,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     recognizedNames.push(name);
                 });
                 lastRecognitionSpan.textContent = recognizedNames.join(', ');
-                statusText.textContent = 'Câmera ativa. Detectando rostos...'; // Restaura status
+                statusText.textContent = 'Câmera ativa. Detectando rostos...';
             } else {
                 lastRecognitionSpan.textContent = 'Nenhum rosto detectado';
-                statusText.textContent = 'Câmera ativa. Detectando rostos...'; // Restaura status
+                statusText.textContent = 'Câmera ativa. Detectando rostos...';
             }
         })
         .catch(error => {
             console.error('Erro no processamento do frame:', error);
             statusText.textContent = 'Erro ao processar imagem!';
             lastRecognitionSpan.textContent = 'Erro na comunicação com o servidor.';
-            // Opcional: tentar carregar os rostos novamente em caso de erro persistente no backend
-            // setTimeout(loadKnownFaces, 5000);
         });
     }
 
-    // Carrega os rostos conhecidos na inicialização da página
     loadKnownFaces();
 });

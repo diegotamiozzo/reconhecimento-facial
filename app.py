@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory, url_for
+from flask import Flask, render_template, request, jsonify, url_for
 import face_recognizer
 import base64
 import os
@@ -9,120 +9,188 @@ import face_recognition
 
 app = Flask(__name__)
 
-UPLOAD_FOLDER = os.path.join('static', 'image', 'faces')
+# Configuration
+UPLOAD_FOLDER = os.path.join('static', 'uploads', 'faces')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'bmp', 'tiff', 'webp'}
+MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
+
+# Ensure upload directory exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 _recognizer_initialized = False
 
 def ensure_recognizer_initialized():
+    """Initialize face recognizer if not already done"""
     global _recognizer_initialized
     if not _recognizer_initialized:
         try:
             face_recognizer.initialize_recognizer()
             _recognizer_initialized = True
-            print("[INFO] Reconhecedor de faces inicializado/recarregado com sucesso.")
+            print("[INFO] Face recognizer initialized successfully.")
         except Exception as e:
-            print(f"[ERRO CRÍTICO] Falha na inicialização do reconhecedor de faces: {e}")
+            print(f"[CRITICAL ERROR] Failed to initialize face recognizer: {e}")
 
 def allowed_file(filename):
+    """Check if file extension is allowed"""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 @app.route('/')
 def index():
+    """Main page route"""
     ensure_recognizer_initialized()
     return render_template('index.html')
 
-@app.route('/process_frame', methods=['POST'])
+@app.route('/api/process-frame', methods=['POST'])
 def process_frame():
+    """Process video frame for face recognition"""
     ensure_recognizer_initialized()
-    data = request.get_json()
-    if not data or 'image' not in data:
-        return jsonify({"error": "Nenhum dado de imagem recebido"}), 400
-
-    img_data_b64 = data['image'].split(',')[1]
-
+    
     try:
+        data = request.get_json()
+        if not data or 'image' not in data:
+            return jsonify({"error": "No image data received"}), 400
+
+        img_data_b64 = data['image'].split(',')[1]
         img_bytes = base64.b64decode(img_data_b64)
         results = face_recognizer.recognize_faces_in_frame(img_bytes)
-        return jsonify(results)
+        
+        return jsonify({
+            "success": True,
+            "faces": results,
+            "count": len(results) if isinstance(results, list) else 0
+        })
+        
     except Exception as e:
-        return jsonify({"error": f"Erro no processamento facial: {str(e)}"}), 500
+        print(f"[ERROR] Frame processing error: {e}")
+        return jsonify({"error": f"Face processing error: {str(e)}"}), 500
 
-@app.route('/upload_face', methods=['POST'])
+@app.route('/api/upload-face', methods=['POST'])
 def upload_face():
-    if 'file' not in request.files:
-        return jsonify({"error": "Nenhum arquivo enviado"}), 400
+    """Upload and register a new face"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({"error": "No file uploaded"}), 400
 
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({"error": "Nenhum arquivo selecionado"}), 400
+        file = request.files['file']
+        name = request.form.get('name', '').strip()
+        
+        if file.filename == '':
+            return jsonify({"error": "No file selected"}), 400
+            
+        if not name:
+            return jsonify({"error": "Name is required"}), 400
 
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file_bytes = file.read()
+        if file and allowed_file(file.filename):
+            # Use the provided name instead of filename
+            filename = f"{secure_filename(name)}.jpg"
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file_bytes = file.read()
 
-        try:
+            # Validate image and detect faces
             np_array = np.frombuffer(file_bytes, np.uint8)
             image = cv2.imdecode(np_array, cv2.IMREAD_COLOR)
+            
             if image is None:
-                return jsonify({"error": "Imagem inválida ou corrompida."}), 400
+                return jsonify({"error": "Invalid or corrupted image"}), 400
 
             rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             face_encodings = face_recognition.face_encodings(rgb_image)
 
             if not face_encodings:
-                return jsonify({"error": "Nenhum rosto detectado na imagem."}), 400
+                return jsonify({"error": "No face detected in the image"}), 400
 
-            with open(file_path, 'wb') as f:
-                f.write(file_bytes)
-
+            # Save the image
+            cv2.imwrite(file_path, image)
+            
+            # Reinitialize recognizer
             face_recognizer.initialize_recognizer()
-            print("[INFO] Reconhecedor de faces recarregado após upload.")
-            return jsonify({"message": f"Rosto '{filename}' carregado com sucesso!"}), 200
+            print(f"[INFO] Face recognizer reloaded after uploading {name}")
+            
+            return jsonify({
+                "success": True,
+                "message": f"Face '{name}' uploaded successfully!",
+                "filename": filename
+            }), 200
 
-        except Exception as e:
-            return jsonify({"error": f"Erro ao processar a imagem: {str(e)}"}), 500
-    else:
-        return jsonify({"error": "Tipo de arquivo não permitido."}), 400
+        else:
+            return jsonify({"error": "File type not allowed"}), 400
+            
+    except Exception as e:
+        print(f"[ERROR] Upload error: {e}")
+        return jsonify({"error": f"Error processing image: {str(e)}"}), 500
 
-@app.route('/list_faces', methods=['GET'])
+@app.route('/api/faces', methods=['GET'])
 def list_faces():
+    """Get list of registered faces"""
     ensure_recognizer_initialized()
-    faces = []
-    folder = app.config['UPLOAD_FOLDER']
-    if os.path.exists(folder):
-        for filename in os.listdir(folder):
-            if os.path.isfile(os.path.join(folder, filename)) and allowed_file(filename):
-                faces.append({
-                    "name": os.path.splitext(filename)[0],
-                    "filename": filename,
-                    "url": url_for('static', filename=f"image/faces/{filename}")
-                })
-    return jsonify({"faces": faces}), 200
+    
+    try:
+        faces = []
+        folder = app.config['UPLOAD_FOLDER']
+        
+        if os.path.exists(folder):
+            for filename in os.listdir(folder):
+                if os.path.isfile(os.path.join(folder, filename)) and allowed_file(filename):
+                    faces.append({
+                        "name": os.path.splitext(filename)[0],
+                        "filename": filename,
+                        "url": url_for('static', filename=f"uploads/faces/{filename}")
+                    })
+        
+        return jsonify({
+            "success": True,
+            "faces": faces,
+            "count": len(faces)
+        }), 200
+        
+    except Exception as e:
+        print(f"[ERROR] List faces error: {e}")
+        return jsonify({"error": "Error loading faces"}), 500
 
-@app.route('/delete_face', methods=['POST'])
+@app.route('/api/delete-face', methods=['DELETE'])
 def delete_face():
-    data = request.get_json()
-    filename_to_delete = data.get('filename')
-    if not filename_to_delete:
-        return jsonify({"error": "Nome do arquivo não fornecido"}), 400
+    """Delete a registered face"""
+    try:
+        data = request.get_json()
+        filename_to_delete = data.get('filename')
+        
+        if not filename_to_delete:
+            return jsonify({"error": "Filename not provided"}), 400
 
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename_to_delete)
-    if os.path.exists(file_path) and os.path.isfile(file_path):
-        try:
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename_to_delete)
+        
+        if os.path.exists(file_path) and os.path.isfile(file_path):
             os.remove(file_path)
             face_recognizer.initialize_recognizer()
-            print("[INFO] Reconhecedor de faces recarregado após exclusão.")
-            return jsonify({"message": f"Rosto '{filename_to_delete}' excluído com sucesso!"}), 200
-        except Exception as e:
-            return jsonify({"error": f"Erro ao excluir: {str(e)}"}), 500
-    else:
-        return jsonify({"error": "Arquivo não encontrado."}), 404
+            print(f"[INFO] Face recognizer reloaded after deleting {filename_to_delete}")
+            
+            return jsonify({
+                "success": True,
+                "message": f"Face '{os.path.splitext(filename_to_delete)[0]}' deleted successfully!"
+            }), 200
+        else:
+            return jsonify({"error": "File not found"}), 404
+            
+    except Exception as e:
+        print(f"[ERROR] Delete error: {e}")
+        return jsonify({"error": f"Error deleting file: {str(e)}"}), 500
+
+@app.errorhandler(413)
+def too_large(e):
+    return jsonify({"error": "File too large. Maximum size is 16MB."}), 413
+
+@app.errorhandler(404)
+def not_found(e):
+    return jsonify({"error": "Endpoint not found"}), 404
+
+@app.errorhandler(500)
+def internal_error(e):
+    return jsonify({"error": "Internal server error"}), 500
 
 if __name__ == '__main__':
     ensure_recognizer_initialized()
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)

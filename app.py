@@ -11,7 +11,7 @@ app = Flask(__name__)
 
 # Configuration
 UPLOAD_FOLDER = os.path.join('static', 'uploads', 'faces')
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'bmp', 'tiff', 'webp'}
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'bmp', 'tiff', 'webp', 'PNG', 'JPG', 'JPEG', 'BMP', 'TIFF', 'WEBP'}
 MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER

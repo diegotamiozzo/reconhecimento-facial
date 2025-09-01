@@ -166,22 +166,28 @@ class FaceRecognitionApp {
                 const adjustedLeft = this.canvas.width - right;
                 const adjustedRight = this.canvas.width - left;
                 
-                // Draw bounding box
+                // Draw bounding box with better visibility
                 this.context.strokeStyle = name === 'Unknown' ? '#ffc107' : '#28a745';
                 this.context.lineWidth = 3;
+                this.context.setLineDash([]);
                 this.context.strokeRect(adjustedLeft, top, adjustedRight - adjustedLeft, bottom - top);
+                
+                // Draw semi-transparent background for better visibility
+                this.context.fillStyle = name === 'Unknown' ? 'rgba(255, 193, 7, 0.1)' : 'rgba(40, 167, 69, 0.1)';
+                this.context.fillRect(adjustedLeft, top, adjustedRight - adjustedLeft, bottom - top);
                 
                 // Draw label background
                 const labelText = confidence > 0 ? `${name} (${Math.round(confidence * 100)}%)` : name;
-                this.context.font = '16px Inter, sans-serif';
+                this.context.font = 'bold 14px Inter, sans-serif';
                 const textWidth = this.context.measureText(labelText).width;
                 
+                // Draw label background with padding
                 this.context.fillStyle = name === 'Unknown' ? '#ffc107' : '#28a745';
-                this.context.fillRect(adjustedLeft, top - 30, textWidth + 12, 30);
+                this.context.fillRect(adjustedLeft, top - 28, textWidth + 16, 24);
                 
                 // Draw label text
-                this.context.fillStyle = 'white';
-                this.context.fillText(labelText, adjustedLeft + 6, top - 8);
+                this.context.fillStyle = name === 'Unknown' ? '#212529' : 'white';
+                this.context.fillText(labelText, adjustedLeft + 8, top - 10);
                 
                 recognizedNames.push(name);
             });

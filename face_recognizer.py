@@ -5,7 +5,7 @@ import numpy as np
 
 # Configuration
 KNOWN_FACES_FOLDER = os.path.join('static', 'uploads', 'faces')
-ALLOWED_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.webp')
+ALLOWED_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.webp', '.PNG', '.JPG', '.JPEG', '.BMP', '.TIFF', '.WEBP')
 FACE_RECOGNITION_TOLERANCE = 0.6
 
 # Global variables for face data

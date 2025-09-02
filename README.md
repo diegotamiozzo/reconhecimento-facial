@@ -29,6 +29,7 @@ A modern web application for real-time face recognition using Flask, OpenCV, and
 
 2. **Install dependencies**
    ```bash
+   python -m ensurepip --upgrade
    pip install -r requirements.txt
    ```
 

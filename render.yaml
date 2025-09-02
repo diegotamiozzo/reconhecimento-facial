@@ -2,7 +2,7 @@ services:
   - type: web
     name: face-recognition-app
     env: python
-    buildCommand: pip install -r requirements.txt
+    buildCommand: python -m ensurepip --upgrade && pip install -r requirements.txt
     startCommand: gunicorn app:app
     envVars:
       - key: PYTHON_VERSION

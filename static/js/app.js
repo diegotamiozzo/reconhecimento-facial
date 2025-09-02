@@ -247,6 +247,8 @@ class FaceRecognitionApp {
         const name = this.personNameInput.value.trim();
         const file = this.faceImageInput.files[0];
         
+        console.log('Validating form:', { name, file: file ? file.name : 'none' });
+        
         this.uploadBtn.disabled = !name || !file;
         
         // Add validation classes
@@ -258,9 +260,18 @@ class FaceRecognitionApp {
         }
         
         if (file) {
-            this.faceImageInput.classList.remove('is-invalid');
-            this.faceImageInput.classList.add('is-valid');
+            // Validate file type
+            const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/bmp', 'image/tiff', 'image/webp'];
+            if (allowedTypes.includes(file.type)) {
+                this.faceImageInput.classList.remove('is-invalid');
+                this.faceImageInput.classList.add('is-valid');
+            } else {
+                this.faceImageInput.classList.add('is-invalid');
+                this.faceImageInput.classList.remove('is-valid');
+                this.uploadBtn.disabled = true;
+            }
         } else {
+            this.faceImageInput.classList.remove('is-invalid');
             this.faceImageInput.classList.remove('is-valid');
         }
     }
@@ -268,11 +279,28 @@ class FaceRecognitionApp {
     async handleUpload(event) {
         event.preventDefault();
         
+        console.log('Upload form submitted');
+        
         const name = this.personNameInput.value.trim();
         const file = this.faceImageInput.files[0];
         
+        console.log('Upload data:', { name, file: file ? file.name : 'none' });
+        
         if (!name || !file) {
             this.showFeedback(this.uploadMessage, 'Please provide both name and image.', true);
+            return;
+        }
+        
+        // Validate file size (16MB limit)
+        if (file.size > 16 * 1024 * 1024) {
+            this.showFeedback(this.uploadMessage, 'File too large. Maximum size is 16MB.', true);
+            return;
+        }
+        
+        // Validate file type
+        const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/bmp', 'image/tiff', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+            this.showFeedback(this.uploadMessage, 'Invalid file type. Please upload PNG, JPEG, BMP, TIFF, or WEBP images.', true);
             return;
         }
         
@@ -285,16 +313,23 @@ class FaceRecognitionApp {
             formData.append('file', file);
             formData.append('name', name);
             
+            console.log('Sending FormData:', { name, fileName: file.name, fileSize: file.size });
+            
             const response = await fetch('/api/upload-face', {
                 method: 'POST',
                 body: formData
             });
             
+            console.log('Response status:', response.status);
+            
             const data = await response.json();
+            console.log('Response data:', data);
             
             if (response.ok && data.success) {
                 this.showFeedback(this.uploadMessage, data.message);
                 this.uploadForm.reset();
+                this.personNameInput.classList.remove('is-valid');
+                this.faceImageInput.classList.remove('is-valid');
                 this.validateForm();
                 await this.loadKnownFaces();
             } else {

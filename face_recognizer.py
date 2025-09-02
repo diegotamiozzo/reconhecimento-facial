@@ -5,7 +5,7 @@ import numpy as np
 
 # Configuration
 KNOWN_FACES_FOLDER = os.path.join('static', 'uploads', 'faces')
-ALLOWED_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.webp', '.PNG', '.JPG', '.JPEG', '.BMP', '.TIFF', '.WEBP')
+ALLOWED_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.webp')
 FACE_RECOGNITION_TOLERANCE = 0.6
 
 # Global variables for face data
@@ -20,6 +20,8 @@ def initialize_recognizer():
     """
     global known_face_encodings, known_face_names
     
+    print(f"[DEBUG] Initializing recognizer, checking folder: {KNOWN_FACES_FOLDER}")
+    
     # Clear existing data
     known_face_encodings = []
     known_face_names = []
@@ -32,14 +34,20 @@ def initialize_recognizer():
     face_files_found = False
     
     try:
-        for filename in os.listdir(KNOWN_FACES_FOLDER):
+        files_in_folder = os.listdir(KNOWN_FACES_FOLDER)
+        print(f"[DEBUG] Files in folder: {files_in_folder}")
+        
+        for filename in files_in_folder:
             image_path = os.path.join(KNOWN_FACES_FOLDER, filename)
+            print(f"[DEBUG] Processing file: {filename}")
 
-            if os.path.isfile(image_path) and filename.lower().endswith(ALLOWED_EXTENSIONS):
+            if os.path.isfile(image_path) and any(filename.lower().endswith(ext) for ext in ALLOWED_EXTENSIONS):
                 try:
+                    print(f"[DEBUG] Loading image: {image_path}")
                     # Load and process image
                     image = face_recognition.load_image_file(image_path)
                     face_encodings = face_recognition.face_encodings(image)
+                    print(f"[DEBUG] Found {len(face_encodings)} encodings in {filename}")
 
                     if face_encodings:
                         known_face_encodings.append(face_encodings[0])
@@ -51,6 +59,8 @@ def initialize_recognizer():
                         
                 except Exception as e:
                     print(f"[ERROR] Failed to load or process image {filename}: {e}")
+            else:
+                print(f"[DEBUG] Skipping file {filename} (not a valid image or not a file)")
 
         if not face_files_found:
             print("[WARNING] No valid face images found in known faces folder. Recognition may not work.")

@@ -38,19 +38,43 @@ class FaceRecognitionApp {
         this.setupEventListeners();
         this.initializeCamera();
         this.loadKnownFaces();
+        
+        // Add debug logging for form elements
+        console.log('Form elements initialized:', {
+            uploadForm: !!this.uploadForm,
+            personNameInput: !!this.personNameInput,
+            faceImageInput: !!this.faceImageInput,
+            uploadBtn: !!this.uploadBtn
+        });
     }
     
     setupEventListeners() {
         // Upload form
-        this.uploadForm.addEventListener('submit', (e) => this.handleUpload(e));
+        if (this.uploadForm) {
+            this.uploadForm.addEventListener('submit', (e) => this.handleUpload(e));
+        }
         
         // Face management
-        this.faceSelect.addEventListener('change', () => this.updateDeleteButtonState());
-        this.refreshBtn.addEventListener('click', () => this.loadKnownFaces());
-        this.deleteBtn.addEventListener('click', () => this.handleDelete());
+        if (this.faceSelect) {
+            this.faceSelect.addEventListener('change', () => this.updateDeleteButtonState());
+        }
+        if (this.refreshBtn) {
+            this.refreshBtn.addEventListener('click', () => this.loadKnownFaces());
+        }
+        if (this.deleteBtn) {
+            this.deleteBtn.addEventListener('click', () => this.handleDelete());
+        }
         
         // Form validation
-        this.uploadForm.addEventListener('input', () => this.validateForm());
+        if (this.uploadForm) {
+            this.uploadForm.addEventListener('input', () => this.validateForm());
+        }
+        if (this.personNameInput) {
+            this.personNameInput.addEventListener('input', () => this.validateForm());
+        }
+        if (this.faceImageInput) {
+            this.faceImageInput.addEventListener('change', () => this.validateForm());
+        }
     }
     
     async initializeCamera() {
@@ -291,15 +315,36 @@ class FaceRecognitionApp {
             return;
         }
         
+        // Validate name length and characters
+        if (name.length < 2) {
+            this.showFeedback(this.uploadMessage, 'Name must be at least 2 characters long.', true);
+            return;
+        }
+        
+        if (name.length > 50) {
+            this.showFeedback(this.uploadMessage, 'Name must be less than 50 characters.', true);
+            return;
+        }
+        
         // Validate file size (16MB limit)
         if (file.size > 16 * 1024 * 1024) {
             this.showFeedback(this.uploadMessage, 'File too large. Maximum size is 16MB.', true);
             return;
         }
         
+        // Validate minimum file size (1KB)
+        if (file.size < 1024) {
+            this.showFeedback(this.uploadMessage, 'File too small. Please upload a valid image.', true);
+            return;
+        }
+        
         // Validate file type
         const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/bmp', 'image/tiff', 'image/webp'];
-        if (!allowedTypes.includes(file.type)) {
+        const allowedExtensions = ['.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.webp'];
+        const fileName = file.name.toLowerCase();
+        const hasValidExtension = allowedExtensions.some(ext => fileName.endsWith(ext));
+        
+        if (!allowedTypes.includes(file.type) || !hasValidExtension) {
             this.showFeedback(this.uploadMessage, 'Invalid file type. Please upload PNG, JPEG, BMP, TIFF, or WEBP images.', true);
             return;
         }
@@ -308,6 +353,9 @@ class FaceRecognitionApp {
         this.uploadBtn.disabled = true;
         this.uploadBtn.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div>Adding...';
         
+        // Clear any previous messages
+        this.uploadMessage.innerHTML = '';
+        
         try {
             const formData = new FormData();
             formData.append('file', file);
@@ -315,12 +363,18 @@ class FaceRecognitionApp {
             
             console.log('Sending FormData:', { name, fileName: file.name, fileSize: file.size });
             
+            // Log FormData contents for debugging
+            for (let [key, value] of formData.entries()) {
+                console.log('FormData entry:', key, value instanceof File ? `File: ${value.name}` : value);
+            }
+            
             const response = await fetch('/api/upload-face', {
                 method: 'POST',
                 body: formData
             });
             
             console.log('Response status:', response.status);
+            console.log('Response headers:', Object.fromEntries(response.headers.entries()));
             
             const data = await response.json();
             console.log('Response data:', data);
@@ -338,7 +392,7 @@ class FaceRecognitionApp {
             
         } catch (error) {
             console.error('Upload error:', error);
-            this.showFeedback(this.uploadMessage, 'Error connecting to server.', true);
+            this.showFeedback(this.uploadMessage, `Error connecting to server: ${error.message}`, true);
         } finally {
             this.uploadBtn.disabled = false;
             this.uploadBtn.innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Add Face';

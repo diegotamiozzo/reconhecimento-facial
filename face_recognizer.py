@@ -30,6 +30,7 @@ def initialize_recognizer():
     if not os.path.exists(KNOWN_FACES_FOLDER):
         os.makedirs(KNOWN_FACES_FOLDER)
         print(f"[INFO] Created faces folder: {KNOWN_FACES_FOLDER}")
+        return  # No faces to load yet
 
     face_files_found = False
     
@@ -38,6 +39,10 @@ def initialize_recognizer():
         print(f"[DEBUG] Files in folder: {files_in_folder}")
         
         for filename in files_in_folder:
+            # Skip hidden files and directories
+            if filename.startswith('.'):
+                continue
+                
             image_path = os.path.join(KNOWN_FACES_FOLDER, filename)
             print(f"[DEBUG] Processing file: {filename}")
 

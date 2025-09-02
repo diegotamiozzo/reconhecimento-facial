@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, jsonify
+from flask_cors import CORS
 import cv2
 import face_recognition
 import os
@@ -13,6 +14,7 @@ import json
 from face_recognizer import initialize_recognizer, recognize_faces_in_frame, get_face_count, get_known_faces
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 
 # Configuration
 UPLOAD_FOLDER = os.path.join('static', 'uploads', 'faces')
@@ -45,8 +47,10 @@ def index():
 def process_frame():
     """Process video frame for face recognition"""
     try:
+        print("[DEBUG] Process frame endpoint called")
         data = request.get_json()
         if not data or 'image' not in data:
+            print("[ERROR] No image data in request")
             return jsonify({'error': 'No image data provided'}), 400
         
         # Decode base64 image
@@ -55,6 +59,7 @@ def process_frame():
             image_data = image_data.split(',')[1]
         
         image_bytes = base64.b64decode(image_data)
+        print(f"[DEBUG] Decoded image bytes: {len(image_bytes)} bytes")
         
         # Process frame
         faces = recognize_faces_in_frame(image_bytes)
@@ -70,6 +75,8 @@ def process_frame():
         
     except Exception as e:
         print(f"[ERROR] Frame processing error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': f'Frame processing failed: {str(e)}'}), 500
 
 @app.route('/api/upload-face', methods=['POST'])
@@ -183,6 +190,8 @@ def upload_face():
         
     except Exception as e:
         print(f"[ERROR] Upload error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': f'Upload failed: {str(e)}'}), 500
 
 @app.route('/api/faces', methods=['GET'])
@@ -214,6 +223,8 @@ def get_faces():
         
     except Exception as e:
         print(f"[ERROR] Error getting faces: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': f'Failed to get faces: {str(e)}'}), 500
 
 @app.route('/api/delete-face', methods=['DELETE'])
@@ -244,6 +255,8 @@ def delete_face():
         
     except Exception as e:
         print(f"[ERROR] Delete error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': f'Delete failed: {str(e)}'}), 500
 
 @app.errorhandler(413)

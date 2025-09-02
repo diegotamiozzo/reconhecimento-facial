@@ -146,15 +146,16 @@ class FaceRecognitionApp {
             const imageData = this.canvas.toDataURL('image/jpeg', 0.8);
             
             // Send to server for processing
-            const response = await fetch('/api/process-frame', {
+            const processUrl = `${window.location.origin}/api/process-frame`;
+            const response = await fetch(processUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ image: imageData })
             });
             
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || `HTTP Error: ${response.status}`);
+                const errorText = await response.text();
+                throw new Error(`HTTP Error: ${response.status} - ${errorText}`);
             }
             
             const data = await response.json();
@@ -304,6 +305,7 @@ class FaceRecognitionApp {
         event.preventDefault();
         
         console.log('Upload form submitted');
+        console.log('Current URL:', window.location.href);
         
         const name = this.personNameInput.value.trim();
         const file = this.faceImageInput.files[0];
@@ -368,18 +370,29 @@ class FaceRecognitionApp {
                 console.log('FormData entry:', key, value instanceof File ? `File: ${value.name}` : value);
             }
             
-            const response = await fetch('/api/upload-face', {
+            // Use absolute URL to avoid any routing issues
+            const uploadUrl = `${window.location.origin}/api/upload-face`;
+            console.log('Upload URL:', uploadUrl);
+            
+            const response = await fetch(uploadUrl, {
                 method: 'POST',
-                body: formData
+                body: formData,
+                // Don't set Content-Type header - let browser set it with boundary for FormData
             });
             
             console.log('Response status:', response.status);
             console.log('Response headers:', Object.fromEntries(response.headers.entries()));
             
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Response error text:', errorText);
+                throw new Error(`Server error: ${response.status} - ${errorText}`);
+            }
+            
             const data = await response.json();
             console.log('Response data:', data);
             
-            if (response.ok && data.success) {
+            if (data.success) {
                 this.showFeedback(this.uploadMessage, data.message);
                 this.uploadForm.reset();
                 this.personNameInput.classList.remove('is-valid');
@@ -392,7 +405,13 @@ class FaceRecognitionApp {
             
         } catch (error) {
             console.error('Upload error:', error);
-            this.showFeedback(this.uploadMessage, `Error connecting to server: ${error.message}`, true);
+            let errorMessage = 'Error connecting to server';
+            if (error.message.includes('Failed to fetch')) {
+                errorMessage = 'Cannot connect to server. Make sure the Flask app is running on port 5000.';
+            } else {
+                errorMessage = `Server error: ${error.message}`;
+            }
+            this.showFeedback(this.uploadMessage, errorMessage, true);
         } finally {
             this.uploadBtn.disabled = false;
             this.uploadBtn.innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Add Face';
@@ -404,10 +423,17 @@ class FaceRecognitionApp {
             this.refreshBtn.disabled = true;
             this.refreshBtn.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div>Loading...';
             
-            const response = await fetch('/api/faces');
-            if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+            const facesUrl = `${window.location.origin}/api/faces`;
+            console.log('Loading faces from:', facesUrl);
+            
+            const response = await fetch(facesUrl);
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP Error: ${response.status} - ${errorText}`);
+            }
             
             const data = await response.json();
+            console.log('Faces data:', data);
             
             // Update face select dropdown
             this.faceSelect.innerHTML = '<option value="">Select a face to delete</option>';
@@ -434,7 +460,13 @@ class FaceRecognitionApp {
         } catch (error) {
             console.error('Error loading faces:', error);
             this.faceSelect.innerHTML = '<option disabled>Error loading faces</option>';
-            this.showFeedback(this.manageMessage, 'Error loading face list.', true);
+            let errorMessage = 'Error loading face list';
+            if (error.message.includes('Failed to fetch')) {
+                errorMessage = 'Cannot connect to server. Make sure the Flask app is running.';
+            } else {
+                errorMessage = `Error: ${error.message}`;
+            }
+            this.showFeedback(this.manageMessage, errorMessage, true);
         } finally {
             this.refreshBtn.disabled = false;
             this.refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise me-2"></i>Refresh List';
@@ -464,15 +496,21 @@ class FaceRecognitionApp {
         this.deleteBtn.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div>Deleting...';
         
         try {
-            const response = await fetch('/api/delete-face', {
+            const deleteUrl = `${window.location.origin}/api/delete-face`;
+            const response = await fetch(deleteUrl, {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ filename: filenameToDelete })
             });
             
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP Error: ${response.status} - ${errorText}`);
+            }
+            
             const data = await response.json();
             
-            if (response.ok && data.success) {
+            if (data.success) {
                 this.showFeedback(this.manageMessage, data.message);
                 await this.loadKnownFaces();
             } else {
@@ -481,7 +519,13 @@ class FaceRecognitionApp {
             
         } catch (error) {
             console.error('Delete error:', error);
-            this.showFeedback(this.manageMessage, 'Error connecting to server.', true);
+            let errorMessage = 'Error connecting to server';
+            if (error.message.includes('Failed to fetch')) {
+                errorMessage = 'Cannot connect to server. Make sure the Flask app is running.';
+            } else {
+                errorMessage = `Error: ${error.message}`;
+            }
+            this.showFeedback(this.manageMessage, errorMessage, true);
         } finally {
             this.deleteBtn.disabled = false;
             this.deleteBtn.innerHTML = '<i class="bi bi-trash me-2"></i>Delete Selected';
